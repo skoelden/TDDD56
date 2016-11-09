@@ -16,7 +16,7 @@ upper_r=0.6
 lower_i=-1
 upper_i=1
 nb_thread=`seq 0 6`			# From 0 (sequential) to 6 threads
-loadbalance="0 1 2"
+loadbalance="0 1"
 
 ## Do not run sequential version with load-balancing strategies
 restrict="! ( match(nb_thread, \"^0\$\") && ! match(loadbalance, \"^0\$\") )"

@@ -140,7 +140,11 @@ parallel_mandelbrot(struct mandelbrot_thread *args, struct mandelbrot_param *par
   // Define the region compute_chunk() has to compute
   // Entire height: from 0 to picture's height
   parameters->begin_h = parameters->height/NB_THREADS*args->id;
-  parameters->end_h = parameters->height/NB_THREADS*(args->id + 1);
+  if(args->id + 1 == NB_THREADS){
+    parameters->end_h = parameters->height;
+  } else{
+    parameters->end_h = parameters->height/NB_THREADS*(args->id + 1);
+  }
   // Entire width: from 0 to picture's width
   parameters->begin_w = 0;
   parameters->end_w = parameters->width;
@@ -153,16 +157,13 @@ parallel_mandelbrot(struct mandelbrot_thread *args, struct mandelbrot_param *par
 #if LOADBALANCE == 1
 
 
-  // Divide the image into many sections. Let each section be divided into subsections, one for each thread.
-  // The reasoning being that nearby sections should be similar in compute time, if they are small enough.
-  int no_of_segments = 16;
-  int no_of_subsegments = NB_THREADS*no_of_segments;
-
-  for(int i = 0; i < no_of_segments; i++)
+  // Let each thread compute every Nth line.
+  int row;
+  for(row = args->id; row < parameters->height; row+=NB_THREADS)
   {
 
-    parameters->begin_h = (i*NB_THREADS +args->id)*parameters->height/no_of_subsegments;
-    parameters->end_h = (i*NB_THREADS +args->id + 1)*parameters->height/no_of_subsegments;
+    parameters->begin_h = row;
+    parameters->end_h = row+1;
 
     parameters->begin_w = 0;
     parameters->end_w = parameters->width;
