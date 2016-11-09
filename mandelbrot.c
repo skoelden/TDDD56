@@ -151,21 +151,25 @@ parallel_mandelbrot(struct mandelbrot_thread *args, struct mandelbrot_param *par
 #endif
 // Compiled only if LOADBALANCE = 1
 #if LOADBALANCE == 1
-    // Replace this code with your load-balanced smarter solution.
-    // Only thread of ID 0 compute the whole picture
-    if(args->id == 0)
-    {
-        // Define the region compute_chunk() has to compute
-        // Entire height: from 0 to picture's height
-        parameters->begin_h = 0;
-        parameters->end_h = parameters->height;
-        // Entire width: from 0 to picture's width
-        parameters->begin_w = 0;
-        parameters->end_w = parameters->width;
 
-        // Go
-        compute_chunk(parameters);
-    }
+
+  // Divide the image into many sections. Let each section be divided into subsections, one for each thread.
+  // The reasoning being that nearby sections should be similar in compute time, if they are small enough.
+  int no_of_segments = 16;
+  int no_of_subsegments = NB_THREADS*no_of_segments;
+
+  for(int i = 0; i < no_of_segments; i++)
+  {
+
+    parameters->begin_h = (i*NB_THREADS +args->id)*parameters->height/no_of_subsegments;
+    parameters->end_h = (i*NB_THREADS +args->id + 1)*parameters->height/no_of_subsegments;
+
+    parameters->begin_w = 0;
+    parameters->end_w = parameters->width;
+
+    // Go
+    compute_chunk(parameters);
+  }
 #endif
 // Compiled only if LOADBALANCE = 2
 #if LOADBALANCE == 2
