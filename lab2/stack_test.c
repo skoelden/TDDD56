@@ -5,20 +5,20 @@
  *  Copyright 2011 Nicolas Melot
  *
  * This file is part of TDDD56.
- * 
+ *
  *     TDDD56 is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU General Public License as published by
  *     the Free Software Foundation, either version 3 of the License, or
  *     (at your option) any later version.
- * 
+ *
  *     TDDD56 is distributed in the hope that it will be useful,
  *     but WITHOUT ANY WARRANTY; without even the implied warranty of
  *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *     GNU General Public License for more details.
- * 
+ *
  *     You should have received a copy of the GNU General Public License
  *     along with TDDD56. If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  */
 
 #include <stdio.h>
@@ -61,24 +61,23 @@ typedef struct stack_measure_arg stack_measure_arg_t;
 struct timespec t_start[NB_THREADS], t_stop[NB_THREADS], start, stop;
 
 #if MEASURE == 1
-void*
-stack_measure_pop(void* arg)
+void* stack_measure_pop(void* arg)
   {
     stack_measure_arg_t *args = (stack_measure_arg_t*) arg;
     int i;
 
+    int dont_care;
     clock_gettime(CLOCK_MONOTONIC, &t_start[args->id]);
     for (i = 0; i < MAX_PUSH_POP / NB_THREADS; i++)
       {
-        // See how fast your implementation can pop MAX_PUSH_POP elements in parallel
+          stack_pop(stack, &dont_care);
       }
     clock_gettime(CLOCK_MONOTONIC, &t_stop[args->id]);
 
     return NULL;
   }
 #elif MEASURE == 2
-void*
-stack_measure_push(void* arg)
+void* stack_measure_push(void* arg)
 {
   stack_measure_arg_t *args = (stack_measure_arg_t*) arg;
   int i;
@@ -86,7 +85,7 @@ stack_measure_push(void* arg)
   clock_gettime(CLOCK_MONOTONIC, &t_start[args->id]);
   for (i = 0; i < MAX_PUSH_POP / NB_THREADS; i++)
     {
-        // See how fast your implementation can push MAX_PUSH_POP elements in parallel
+        stack_push(stack, args->id);
     }
   clock_gettime(CLOCK_MONOTONIC, &t_stop[args->id]);
 
@@ -96,74 +95,127 @@ stack_measure_push(void* arg)
 #endif
 
 /* A bunch of optional (but useful if implemented) unit tests for your stack */
-void
-test_init()
+void test_init()
 {
   // Initialize your test batch
 }
 
-void
-test_setup()
+void test_setup()
 {
-  // Allocate and initialize your test stack before each test
-  data = DATA_VALUE;
-
-  // Allocate a new stack and reset its values
-  stack = malloc(sizeof(stack_t));
-
-  // Reset explicitely all members to a well-known initial value
-  // For instance (to be deleted as your stack design progresses):
-  stack->change_this_member = 0;
+  stack = (stack_t*)malloc(sizeof(stack_t));
+  stack_init(stack, MAX_PUSH_POP);
 }
 
-void
-test_teardown()
+void test_teardown()
 {
-  // Do not forget to free your stacks after each test
-  // to avoid memory leaks
-  free(stack);
+    stack_item_t* tmp;
+    while(stack->unused != NULL){
+        tmp = stack->unused->next;
+        free(stack->unused);
+        stack->unused = tmp;
+    }
+    while(stack->head != NULL){
+        tmp = stack->head->next;
+        free(stack->head);
+        stack->head = tmp;
+    }
+    free(stack);
 }
 
-void
-test_finalize()
+void test_finalize()
 {
   // Destroy properly your test batch
 }
 
-int
-test_push_safe()
+int test_push_safe()
 {
-  // Make sure your stack remains in a good state with expected content when
-  // several threads push concurrently to it
+    // Make sure your stack remains in a good state with expected content when
+    // several threads push concurrently to it
 
-  // Do some work
-  stack_push(/* add relevant arguments here */);
+    // Do some work
+    int retval;
+    do
+    {
+        retval = stack_push(stack, 1);
+    }while(retval);
 
-  // check if the stack is in a consistent state
-  stack_check(stack);
 
-  // check other properties expected after a push operation
-  // (this is to be updated as your stack design progresses)
-  assert(stack->change_this_member == 0);
+    // check if the stack is in a consistent state
+    int stack_ok = 1;
+    if(stack->unused != NULL)
+    {
+        stack_ok = 0;
+    }
 
-  // For now, this test always fails
-  return 0;
+    int stack_length = 0;
+    int dont_care;
+    retval = stack_pop(stack, &dont_care);
+    while(retval)
+    {
+        stack_length++;
+        retval = stack_pop(stack, &dont_care);
+    }
+
+
+    if(stack_length != 2*MAX_PUSH_POP)
+    {
+        stack_ok = 0;
+    }
+
+    // check other properties expected after a push operation
+    // (this is to be updated as your stack design progresses)
+    //assert(stack->change_this_member == 0);
+
+    // For now, this test always fails
+    return stack_ok;
 }
 
-int
-test_pop_safe()
+int test_pop_safe()
 {
   // Same as the test above for parallel pop operation
 
-  // For now, this test always fails
-  return 0;
+    int value;
+    int retval;
+    do
+    {
+        retval = stack_pop(stack, &value);
+    }while(retval);
+
+
+    // check if the stack is in a consistent state
+    int stack_ok = 1;
+    if(stack->head != NULL)
+    {
+        stack_ok = 0;
+    }
+
+    int stack_length = 0;
+    int dont_care;
+    retval = stack_pop(stack, &dont_care);
+    while(retval)
+    {
+        stack_length++;
+        retval = stack_pop(stack, &dont_care);
+    }
+
+
+    if(stack_length != 2*MAX_PUSH_POP)
+    {
+        stack_ok = 0;
+    }
+
+    // check other properties expected after a push operation
+    // (this is to be updated as your stack design progresses)
+    //assert(stack->change_this_member == 0);
+
+    // For now, this test always fails
+    return stack_ok;
 }
 
 // 3 Threads should be enough to raise and detect the ABA problem
 #define ABA_NB_THREADS 3
 
-int
-test_aba()
+int test_aba()
 {
 #if NON_BLOCKING == 1 || NON_BLOCKING == 2
   int success, aba_detected = 0;
@@ -185,8 +237,7 @@ struct thread_test_cas_args
 };
 typedef struct thread_test_cas_args thread_test_cas_args_t;
 
-void*
-thread_test_cas(void* arg)
+void* thread_test_cas(void* arg)
 {
 #if NON_BLOCKING != 0
   thread_test_cas_args_t *args = (thread_test_cas_args_t*) arg;
@@ -210,8 +261,7 @@ thread_test_cas(void* arg)
 }
 
 // Make sure Compare-and-swap works as expected
-int
-test_cas()
+int test_cas()
 {
 #if NON_BLOCKING == 1 || NON_BLOCKING == 2
   pthread_attr_t attr;
@@ -226,7 +276,7 @@ test_cas()
 
   counter = 0;
   pthread_attr_init(&attr);
-  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE); 
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
   pthread_mutexattr_init(&mutex_attr);
   pthread_mutex_init(&lock, &mutex_attr);
 
@@ -257,19 +307,18 @@ test_cas()
 #endif
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 setbuf(stdout, NULL);
 // MEASURE == 0 -> run unit tests
 #if MEASURE == 0
   test_init();
 
-  test_run(test_cas);
+  //test_run(test_cas);
 
   test_run(test_push_safe);
   test_run(test_pop_safe);
-  test_run(test_aba);
+  //test_run(test_aba);
 
   test_finalize();
 #else
