@@ -27,6 +27,7 @@
 
 #include <assert.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -114,6 +115,7 @@ int stack_push(stack_t* stack, int value) /* Return the type you prefer */
 #elif NON_BLOCKING == 1 // using hardware CAS
 
     stack_item_t* oldval;
+    stack_item_t* newval;
 
 //get a stack item from the unused stack
     do
@@ -123,9 +125,10 @@ int stack_push(stack_t* stack, int value) /* Return the type you prefer */
         {
             return 0;
         }
+        newval = oldval->next;
         new_stack_item = oldval;
     }
-    while(cas((size_t*)&(stack->unused), (size_t)oldval, (size_t)oldval->next) != (size_t)oldval);
+    while(cas((size_t*)&(stack->unused), (size_t)oldval, (size_t)newval) != (size_t)oldval);
 
 
     new_stack_item->value = value;
@@ -140,6 +143,7 @@ int stack_push(stack_t* stack, int value) /* Return the type you prefer */
 
     return 1;
 
+    /*** Optional ***/
 #endif
 }
 
@@ -168,6 +172,84 @@ int stack_pop(stack_t* stack, int* value)  /* Return the type you prefer */
 #elif NON_BLOCKING == 1
 
     stack_item_t* oldval;
+    stack_item_t* newval;
+//get a stack item from the stack
+    do
+    {
+        oldval = stack->head;
+        if(oldval == NULL)
+        {
+            return 0;
+        }
+        newval = oldval->next;
+        popped = oldval;
+    }
+    while(cas((size_t*)&(stack->head), (size_t)oldval, (size_t)newval) != (size_t)oldval);
+
+    *value = popped->value;
+
+    // push this item to the unused stack
+    do
+    {
+        oldval = stack->unused;
+        popped->next = oldval;
+    }
+    while(cas((size_t*)&(stack->unused), (size_t)oldval, (size_t)popped) != (size_t)oldval);
+    return 1;
+
+#endif
+}
+
+int stack_pop_force_aba_1(stack_t* stack, int* value)  /* Return the type you prefer */
+{
+    stack_item_t* popped;
+
+#if NON_BLOCKING == 0
+    return 0; //Unsupported
+#elif NON_BLOCKING == 1
+
+    stack_item_t* oldval;
+    stack_item_t* newval;
+    //get a stack item from the stack
+    do
+    {
+        oldval = stack->head;
+        if(oldval == NULL)
+        {
+            return 0;
+        }
+        popped = oldval;
+        newval = oldval->next;
+
+// Interrupt at the right moment
+        sem_post(&sem_aba_1);
+        sem_wait(&sem_aba_4);
+    }
+    while(cas((size_t*)&(stack->head), (size_t)oldval, (size_t)newval) != (size_t)oldval);
+
+    *value = popped->value;
+
+    // push this item to the unused stack
+    do
+    {
+        oldval = stack->unused;
+        popped->next = oldval;
+    }
+    while(cas((size_t*)&(stack->unused), (size_t)oldval, (size_t)popped) != (size_t)oldval);
+    return 1;
+
+#endif
+}
+
+int stack_pop_force_aba_2(stack_t* stack, int* value)  /* Return the type you prefer */
+{
+    stack_item_t* popped;
+
+#if NON_BLOCKING == 0
+    return 0; //Unsupported
+#elif NON_BLOCKING == 1
+
+    stack_item_t* oldval;
     //get a stack item from the stack
     do
     {
@@ -181,6 +263,10 @@ int stack_pop(stack_t* stack, int* value)  /* Return the type you prefer */
     while(cas((size_t*)&(stack->head), (size_t)oldval, (size_t)oldval->next) != (size_t)oldval);
 
     *value = popped->value;
+
+    // Interrupt at the right moment
+    sem_post(&sem_aba_2);
+    sem_wait(&sem_aba_3);
 
     // push this item to the unused stack
     do

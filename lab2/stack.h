@@ -23,9 +23,15 @@
 
 #include <stdlib.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #ifndef STACK_H
 #define STACK_H
+
+sem_t sem_aba_1;
+sem_t sem_aba_2;
+sem_t sem_aba_3;
+sem_t sem_aba_4;
 
 struct stack_item
 {
@@ -50,6 +56,8 @@ int stack_push(stack_t*, int); /* Return the type you prefer */
 
 // Pops an element in a thread-safe manner
 int stack_pop(stack_t*, int*);  /* Return the type you prefer */
+int stack_pop_force_aba_1(stack_t*, int*);  /* Return the type you prefer */
+int stack_pop_force_aba_2(stack_t*, int*);  /* Return the type you prefer */
 
 
 
