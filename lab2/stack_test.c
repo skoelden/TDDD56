@@ -119,6 +119,7 @@ void test_teardown()
         free(stack->head);
         stack->head = tmp;
     }
+
     free(stack);
 }
 
@@ -148,14 +149,12 @@ int test_push_safe()
     }
 
     int stack_length = 0;
-    int dont_care;
-    retval = stack_pop(stack, &dont_care);
-    while(retval)
+    stack_item_t* tmp = stack->head;
+    while(tmp != NULL)
     {
         stack_length++;
-        retval = stack_pop(stack, &dont_care);
+        tmp = tmp->next;
     }
-
 
     if(stack_length != 2*MAX_PUSH_POP)
     {
@@ -168,6 +167,13 @@ int test_push_safe()
 
     // For now, this test always fails
     return stack_ok;
+}
+void* thread_test_pop_safe(void* arg)
+{
+    if(1){
+
+    }
+    return NULL;
 }
 
 int test_pop_safe()
@@ -189,17 +195,17 @@ int test_pop_safe()
         stack_ok = 0;
     }
 
-    int stack_length = 0;
-    int dont_care;
-    retval = stack_pop(stack, &dont_care);
-    while(retval)
+    int unused_length = 0;
+    stack_item_t* tmp = stack->unused;
+    while(tmp != NULL)
     {
-        stack_length++;
-        retval = stack_pop(stack, &dont_care);
+        //printf("%d\n", tmp->value);
+        unused_length++;
+        tmp = tmp->next;
     }
 
 
-    if(stack_length != 2*MAX_PUSH_POP)
+    if(unused_length != 2*MAX_PUSH_POP)
     {
         stack_ok = 0;
     }
@@ -314,11 +320,11 @@ setbuf(stdout, NULL);
 #if MEASURE == 0
   test_init();
 
-  //test_run(test_cas);
+  test_run(test_cas);
 
   test_run(test_push_safe);
   test_run(test_pop_safe);
-  //test_run(test_aba);
+  test_run(test_aba);
 
   test_finalize();
 #else
@@ -346,6 +352,8 @@ setbuf(stdout, NULL);
       pthread_join(thread[i], NULL);
     }
   clock_gettime(CLOCK_MONOTONIC, &stop);
+
+  test_teardown();
 
   // Print out results
   for (i = 0; i < NB_THREADS; i++)

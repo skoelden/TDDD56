@@ -65,17 +65,19 @@ void stack_init(stack_t* stack, int max_size)
     {
         stack_item_t* new_item = (stack_item_t*) malloc(sizeof(stack_item_t));
         stack_item_t* new_item_unused = (stack_item_t*) malloc(sizeof(stack_item_t));
+
+        new_item->value = 0;
+        new_item_unused->value = 0;
         if(i == 0)
         {
             new_item->next = NULL;
             new_item_unused->next = NULL;
+        } else
+        {
+            new_item->next = stack->head;
+            new_item_unused->next = stack->unused;
         }
-        new_item->value = 0;
-        new_item->next = stack->head;
         stack->head = new_item;
-
-        new_item_unused->value = 0;
-        new_item_unused->next = stack->unused;
         stack->unused = new_item_unused;
     }
 
@@ -117,9 +119,14 @@ int stack_push(stack_t* stack, int value) /* Return the type you prefer */
     do
     {
         oldval = stack->unused;
+        if(oldval == NULL)
+        {
+            return 0;
+        }
         new_stack_item = oldval;
     }
     while(cas((size_t*)&(stack->unused), (size_t)oldval, (size_t)oldval->next) != (size_t)oldval);
+
 
     new_stack_item->value = value;
 
@@ -131,17 +138,9 @@ int stack_push(stack_t* stack, int value) /* Return the type you prefer */
     }
     while(cas((size_t*)&(stack->head), (size_t)oldval, (size_t)new_stack_item) != (size_t)oldval);
 
-#else
-    /*** Optional ***/
-    // Implement a software CAS-based stack
+    return 1;
+
 #endif
-
-    // Debug practice: you can check if this operation results in a stack in a consistent check
-    // It doesn't harm performance as sanity check are disabled at measurement time
-    // This is to be updated as your implementation progresses
-    stack_check((stack_t*)1);
-
-    return 0;
 }
 
 int stack_pop(stack_t* stack, int* value)  /* Return the type you prefer */
@@ -173,6 +172,10 @@ int stack_pop(stack_t* stack, int* value)  /* Return the type you prefer */
     do
     {
         oldval = stack->head;
+        if(oldval == NULL)
+        {
+            return 0;
+        }
         popped = oldval;
     }
     while(cas((size_t*)&(stack->head), (size_t)oldval, (size_t)oldval->next) != (size_t)oldval);
@@ -186,11 +189,7 @@ int stack_pop(stack_t* stack, int* value)  /* Return the type you prefer */
         popped->next = oldval;
     }
     while(cas((size_t*)&(stack->unused), (size_t)oldval, (size_t)popped) != (size_t)oldval);
+    return 1;
 
-#else
-    /*** Optional ***/
-    // Implement a software CAS-based stack
 #endif
-
-    return 0;
 }
